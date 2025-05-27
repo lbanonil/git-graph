@@ -24,12 +24,14 @@ pub struct GitGraph {
     pub tags: Vec<usize>,
     /// The current HEAD
     pub head: HeadInfo,
+
+    pub settings: Settings,
 }
 
 impl GitGraph {
     pub fn new(
         mut repository: Repository,
-        settings: &Settings,
+        settings: Settings,
         max_count: Option<usize>,
     ) -> Result<Self, String> {
         let mut stashes = HashSet::new();
@@ -78,8 +80,8 @@ impl GitGraph {
 
         assign_children(&mut commits, &indices);
 
-        let mut all_branches = assign_branches(&repository, &mut commits, &indices, settings)?;
-        correct_fork_merges(&commits, &indices, &mut all_branches, settings)?;
+        let mut all_branches = assign_branches(&repository, &mut commits, &indices, &settings)?;
+        correct_fork_merges(&commits, &indices, &mut all_branches, &settings)?;
         assign_sources_targets(&commits, &indices, &mut all_branches);
 
         let (shortest_first, forward) = match settings.branch_order {
@@ -163,6 +165,7 @@ impl GitGraph {
             branches,
             tags,
             head,
+            settings,
         })
     }
 

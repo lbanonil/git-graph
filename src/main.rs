@@ -22,16 +22,19 @@ use std::time::Instant;
 const REPO_CONFIG_FILE: &str = "git-graph.toml";
 
 fn main() {
-    std::process::exit(match from_args() {
-        Ok(_) => 0,
-        Err(err) => {
-            eprintln!("{}", err);
-            1
-        }
-    });
+    let graph = from_args().unwrap();
+    run(&graph, false, true).unwrap(); // TODO TEMP FALSES
+
+    // std::process::exit(match from_args() {
+    //     Ok(_) => 0,
+    //     Err(err) => {
+    //         eprintln!("{}", err);
+    //         1
+    //     }
+    // });
 }
 
-fn from_args() -> Result<(), String> {
+fn from_args() -> Result<GitGraph, String> {
     let app_dir = AppDirs::new(Some("git-graph"), false).unwrap().config_dir;
     let mut models_dir = app_dir;
     models_dir.push("models");
@@ -251,7 +254,7 @@ fn from_args() -> Result<(), String> {
                 "{}",
                 itertools::join(get_available_models(&models_dir)?, "\n")
             );
-            return Ok(());
+            // return Ok(()); TODO Fix this
         }
     }
 
@@ -275,7 +278,7 @@ fn from_args() -> Result<(), String> {
             }
             Some(model) => set_model(&repository, model, REPO_CONFIG_FILE, &models_dir)?,
         };
-        return Ok(());
+        // return Ok(()); // TODO Fix this
     }
 
     let commit_limit = match matches.get_one::<String>("max-count") {
@@ -406,22 +409,18 @@ fn from_args() -> Result<(), String> {
         merge_patterns: MergePatterns::default(),
     };
 
-    run(repository, &settings, svg, commit_limit, pager)
+    GitGraph::new(repository, settings, commit_limit)
+
+    // run(repository, &settings, svg, commit_limit, pager)
 }
 
-fn run(
-    repository: Repository,
-    settings: &Settings,
-    svg: bool,
-    max_commits: Option<usize>,
-    pager: bool,
-) -> Result<(), String> {
+fn run(graph: &GitGraph, svg: bool, pager: bool) -> Result<(), String> {
     let now = Instant::now();
-    let graph = GitGraph::new(repository, settings, max_commits)?;
+    // let graph = GitGraph::new(repository, settings, max_commits)?;
 
     let duration_graph = now.elapsed().as_micros();
 
-    if settings.debug {
+    if graph.settings.debug {
         for branch in &graph.all_branches {
             eprintln!(
                 "{} (col {}) ({:?}) {} s: {:?}, t: {:?}",
@@ -438,9 +437,9 @@ fn run(
     let now = Instant::now();
 
     if svg {
-        println!("{}", print_svg(&graph, settings)?);
+        println!("{}", print_svg(&graph, &graph.settings)?);
     } else {
-        let (g_lines, t_lines, _indices) = print_unicode(&graph, settings)?;
+        let (g_lines, t_lines, _indices) = print_unicode(&graph, &graph.settings)?;
         if pager && atty::is(atty::Stream::Stdout) {
             print_paged(&g_lines, &t_lines).map_err(|err| err.to_string())?;
         } else {
@@ -450,7 +449,7 @@ fn run(
 
     let duration_print = now.elapsed().as_micros();
 
-    if settings.debug {
+    if graph.settings.debug {
         eprintln!(
             "Graph construction: {:.1} ms, printing: {:.1} ms ({} commits)",
             duration_graph as f32 / 1000.0,
